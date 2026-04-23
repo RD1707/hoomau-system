@@ -7,11 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Save, Bot, Clock, MapPin, MessageSquare } from "lucide-react";
+import { Loader2, Save, Bot, Clock, MapPin } from "lucide-react";
 
 export default function BotSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Estado local mapeado para os campos da interface
   const [settings, setSettings] = useState<any>({
     bot_name: "",
     bot_persona: "",
@@ -28,27 +30,47 @@ export default function BotSettings() {
 
   async function loadSettings() {
     setLoading(true);
-    // Assume-se que existe apenas uma linha na tabela de configurações
+    // Carrega da tabela real bot_config (id 1 é o padrão singleton) 
     const { data, error } = await supabase
-      .from("settings")
+      .from("bot_config")
       .select("*")
+      .eq("id", 1)
       .single();
 
     if (!error && data) {
-      setSettings(data);
+      // Mapeia os nomes das colunas do banco para o estado da UI
+      setSettings({
+        bot_name: data.attendant_name || "",
+        bot_persona: data.persona_prompt || "",
+        welcome_message: data.welcome_message || "",
+        office_hours_start: data.office_hours_start || "08:00",
+        office_hours_end: data.office_hours_end || "18:00",
+        address: data.store_address || "",
+        is_active: data.is_active ?? true
+      });
+    } else if (error) {
+      console.error("Erro ao carregar configurações:", error.message);
     }
     setLoading(false);
   }
 
   async function handleSave() {
     setSaving(true);
+    
+    // Atualiza a tabela real bot_config em vez da view settings 
     const { error } = await supabase
-      .from("settings")
-      .upsert({ 
-        id: settings.id || undefined, // Upsert baseado no ID se existir
-        ...settings,
+      .from("bot_config")
+      .update({ 
+        attendant_name: settings.bot_name, // Mapeamento correto
+        persona_prompt: settings.bot_persona, // Mapeamento correto
+        welcome_message: settings.welcome_message,
+        office_hours_start: settings.office_hours_start,
+        office_hours_end: settings.office_hours_end,
+        store_address: settings.address, // Mapeamento correto
+        is_active: settings.is_active,
         updated_at: new Date().toISOString()
-      });
+      })
+      .eq("id", 1); // Garante que atualiza apenas o registro singleton 
 
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
@@ -87,7 +109,6 @@ export default function BotSettings() {
           <TabsTrigger value="info">Informações</TabsTrigger>
         </TabsList>
 
-        {/* ABA: PERSONA E MENSAGENS */}
         <TabsContent value="persona" className="space-y-4">
           <Card>
             <CardHeader>
@@ -109,7 +130,7 @@ export default function BotSettings() {
                   rows={4}
                   value={settings.bot_persona}
                   onChange={(e) => setSettings({...settings, bot_persona: e.target.value})}
-                  placeholder="Ex: Você é uma atendente educada de uma loja de roupas. Seja prestativa, use emojis moderadamente e foque em mostrar o catálogo." 
+                  placeholder="Ex: Você é uma atendente educada de uma loja de roupas..." 
                 />
               </div>
               <div className="grid gap-2">
@@ -117,19 +138,18 @@ export default function BotSettings() {
                 <Textarea 
                   value={settings.welcome_message}
                   onChange={(e) => setSettings({...settings, welcome_message: e.target.value})}
-                  placeholder="Olá! Sou a assistente virtual da Hoomau. Como posso te ajudar hoje?" 
+                  placeholder="Olá! Sou a assistente virtual da Hoomau..." 
                 />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ABA: HORÁRIOS */}
         <TabsContent value="horarios" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Horário de Funcionamento</CardTitle>
-              <CardDescription>O bot avisará o cliente se ele entrar em contato fora destes horários.</CardDescription>
+              <CardDescription>Controle quando o bot deve responder automaticamente.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -164,12 +184,11 @@ export default function BotSettings() {
           </Card>
         </TabsContent>
 
-        {/* ABA: INFORMAÇÕES DA LOJA */}
         <TabsContent value="info" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Localização e FAQ</CardTitle>
-              <CardDescription>Dados que a IA usará para responder dúvidas sobre a loja física.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Localização</CardTitle>
+              <CardDescription>Endereço físico da loja usado pela IA.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2">
@@ -177,7 +196,7 @@ export default function BotSettings() {
                 <Textarea 
                   value={settings.address}
                   onChange={(e) => setSettings({...settings, address: e.target.value})}
-                  placeholder="Rua Exemplo, 123 - Centro, Cidade - UF" 
+                  placeholder="Rua Exemplo, 123 - Centro..." 
                 />
               </div>
             </CardContent>

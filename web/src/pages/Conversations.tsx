@@ -8,9 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
-import { Send, Bot, User, PauseCircle, PlayCircle, Loader2, MessageSquareOff } from "lucide-react";
+import { Send, User, PauseCircle, PlayCircle, Loader2, MessageSquareOff } from "lucide-react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 export default function Conversations() {
   const [searchParams] = useSearchParams();
@@ -28,21 +27,20 @@ export default function Conversations() {
   // Carrega a lista de conversas
   useEffect(() => {
     loadConversations();
-    // Um polling simples para atualizar a lista a cada 10 segundos
     const interval = setInterval(loadConversations, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  // Quando escolhemos uma conversa ou o polling roda, carrega as mensagens
+  // Polling para mensagens do chat aberto
   useEffect(() => {
     if (activeId) {
       loadMessages(activeId);
-      const interval = setInterval(() => loadMessages(activeId), 5000); // Polling mais rápido para o chat aberto
+      const interval = setInterval(() => loadMessages(activeId), 5000);
       return () => clearInterval(interval);
     }
   }, [activeId]);
 
-  // Se vier da tela de clientes com um ID, tenta selecionar essa conversa
+  // Seleção automática se vier da tela de clientes
   useEffect(() => {
     if (preSelectedCustomerId && conversations.length > 0 && !activeId) {
       const convo = conversations.find(c => c.customers?.id === preSelectedCustomerId);
@@ -50,7 +48,6 @@ export default function Conversations() {
     }
   }, [preSelectedCustomerId, conversations]);
 
-  // Scroll automático para a última mensagem
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -60,10 +57,10 @@ export default function Conversations() {
       .from("conversations")
       .select(`
         id, 
-        status, 
+        bot_paused,
         last_message_at,
         customers ( id, name, phone )
-      `)
+      `) // Alterado de status para bot_paused
       .order("last_message_at", { ascending: false });
 
     if (!error && data) {
@@ -87,17 +84,17 @@ export default function Conversations() {
     setLoadingMessages(false);
   }
 
-  async function toggleBotStatus(conversationId: string, currentStatus: string) {
-    const newStatus = currentStatus === "paused" ? "open" : "paused";
+  // Correção: Atualizando bot_paused em vez de status
+  async function toggleBotStatus(conversationId: string, currentPaused: boolean) {
     const { error } = await supabase
       .from("conversations")
-      .update({ status: newStatus })
+      .update({ bot_paused: !currentPaused }) 
       .eq("id", conversationId);
 
     if (error) {
       toast({ title: "Erro ao alterar status", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: newStatus === "paused" ? "Bot Pausado (Atendimento Humano)" : "Bot Reativado" });
+      toast({ title: !currentPaused ? "Bot Pausado (Atendimento Humano)" : "Bot Reativado" });
       loadConversations();
     }
   }
@@ -111,11 +108,10 @@ export default function Conversations() {
 
     setSending(true);
     
-    // Insere na fila de envios manuais para o bot do Node.js apanhar e enviar via Baileys
     const { error } = await supabase
       .from("outbound_messages")
       .insert([{
-        customer_id: activeConvo.customers.id,
+        conversation_id: activeId,
         text: newMessage.trim(),
         status: "pending"
       }]);
@@ -123,9 +119,7 @@ export default function Conversations() {
     if (error) {
       toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" });
     } else {
-      // Se enviou com sucesso, limpa o input. A mensagem aparecerá na tela quando o bot local processar e gravar em "messages"
       setNewMessage("");
-      // Pequeno truque para não parecer que falhou: recarrega as mensagens logo de seguida
       setTimeout(() => loadMessages(activeId), 1500); 
     }
     setSending(false);
@@ -135,7 +129,7 @@ export default function Conversations() {
 
   return (
     <div className="flex h-[calc(100vh-140px)] gap-4 overflow-hidden">
-      {/* PAINEL ESQUERDO: LISTA DE CONVERSAS */}
+      {/* PAINEL ESQUERDO */}
       <Card className="w-1/3 flex flex-col overflow-hidden border-muted">
         <div className="p-4 border-b bg-muted/20">
           <h2 className="font-semibold">Conversas Ativas</h2>
@@ -166,8 +160,8 @@ export default function Conversations() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={c.status === "paused" ? "outline" : "default"} className="text-[10px] px-1 py-0 h-4">
-                        {c.status === "paused" ? "Humano" : "Bot"}
+                      <Badge variant={c.bot_paused ? "outline" : "default"} className="text-[10px] px-1 py-0 h-4">
+                        {c.bot_paused ? "Humano" : "Bot"}
                       </Badge>
                       <span className="text-xs text-muted-foreground truncate">{c.customers?.phone}</span>
                     </div>
@@ -179,11 +173,10 @@ export default function Conversations() {
         </ScrollArea>
       </Card>
 
-      {/* PAINEL DIREITO: CHAT */}
+      {/* PAINEL DIREITO */}
       <Card className="flex-1 flex flex-col overflow-hidden border-muted">
         {activeConvo ? (
           <>
-            {/* Cabeçalho do Chat */}
             <div className="flex items-center justify-between p-4 border-b bg-muted/20">
               <div className="flex items-center gap-3">
                 <Avatar>
@@ -195,10 +188,10 @@ export default function Conversations() {
                 </div>
               </div>
               <Button 
-                variant={activeConvo.status === "paused" ? "default" : "secondary"}
-                onClick={() => toggleBotStatus(activeConvo.id, activeConvo.status)}
+                variant={activeConvo.bot_paused ? "default" : "secondary"}
+                onClick={() => toggleBotStatus(activeConvo.id, activeConvo.bot_paused)}
               >
-                {activeConvo.status === "paused" ? (
+                {activeConvo.bot_paused ? (
                   <><PlayCircle className="mr-2 h-4 w-4" /> Reativar Bot</>
                 ) : (
                   <><PauseCircle className="mr-2 h-4 w-4" /> Assumir Conversa</>
@@ -206,7 +199,6 @@ export default function Conversations() {
               </Button>
             </div>
 
-            {/* Área de Mensagens */}
             <ScrollArea className="flex-1 p-4 bg-slate-50/50 dark:bg-transparent">
               {loadingMessages ? (
                 <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
@@ -215,7 +207,7 @@ export default function Conversations() {
               ) : (
                 <div className="space-y-4">
                   {messages.map((m) => {
-                    const isCustomer = m.author === "customer" || m.direction === "inbound";
+                    const isCustomer = m.direction === "inbound";
                     return (
                       <div key={m.id} className={`flex flex-col ${isCustomer ? "items-start" : "items-end"}`}>
                         <div className="flex items-center gap-2 mb-1">
@@ -241,10 +233,9 @@ export default function Conversations() {
               )}
             </ScrollArea>
 
-            {/* Input de Envio */}
             <form onSubmit={sendMessage} className="p-4 border-t bg-background flex gap-2">
               <Input 
-                placeholder={activeConvo.status === "paused" ? "Digite a sua mensagem..." : "Pause o bot para falar manualmente..."}
+                placeholder={activeConvo.bot_paused ? "Digite a sua mensagem..." : "Pause o bot para falar manualmente..."}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 disabled={sending}

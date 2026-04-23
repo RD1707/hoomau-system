@@ -43,7 +43,7 @@ export async function summarizeConversation(text: string): Promise<{ summary: st
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "command-r-plus",
+        model: "command-a-03-2025",
         message: `Resuma a conversa abaixo em 2 frases e liste 3 tags (ex: tamanho-M, vestido-preto, intenção-compra). Responda em JSON {"summary":"...","tags":["..."]}.\n\n${text}`
       })
     });

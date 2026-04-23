@@ -1,4 +1,4 @@
-# Sistema de Atendimento WhatsApp para Loja de Roupas
+# Sistema de Atendimento WhatsApp para Loja Hoomau
 
 Este projeto contém DUAS partes que compartilham o mesmo banco Supabase:
 

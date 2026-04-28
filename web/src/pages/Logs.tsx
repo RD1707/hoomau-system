@@ -86,7 +86,7 @@ export default function Logs() {
             {!isBotAlive && (
               <div className="p-3 bg-destructive/10 rounded-lg flex items-start gap-2 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <p>O bot parece estar desligado. Certifique-se de que abriu o ficheiro <strong>Iniciar_Bot.bat</strong> no computador da loja.</p>
+                <p>O bot parece estar desligado. Certifique-se de que abriu o ficheiro <strong>INICIAR BOT.bat</strong> no computador da loja.</p>
               </div>
             )}
           </CardContent>

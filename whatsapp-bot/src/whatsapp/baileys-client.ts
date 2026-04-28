@@ -13,6 +13,7 @@ import path from "path";
 import { logger, persistLog } from "../utils/logger";
 import { supabase } from "../supabase/client";
 import { handleIncomingMessage } from "../core/message-handler";
+import { upsertCustomerByPhone } from "../services/customers";
 
 let sock: WASocket | null = null;
 
@@ -90,6 +91,40 @@ export async function startBaileys() {
       } catch (err) {
         logger.error({ err }, "Erro ao processar mensagem");
         await persistLog("error", "Erro ao processar mensagem", { err: String(err) });
+      }
+    }
+  });
+
+  // Escuta os contactos da agenda sendo sincronizados
+  sock.ev.on("contacts.upsert", async (contacts) => {
+    for (const contact of contacts) {
+      try {
+        // Ignora grupos e status, pega apenas contactos normais
+        if (contact.id && contact.id.endsWith("@s.whatsapp.net")) {
+          const phone = contact.id.split("@")[0];
+          const name = contact.name || contact.notify || "Sem nome";
+          await upsertCustomerByPhone(phone, name);
+        }
+      } catch (err) {
+        logger.error({ err, phone: contact.id }, "Erro ao sincronizar contacto");
+      }
+    }
+  });
+
+  // Escuta o histórico de conversas antigas (ocorre geralmente após ler o QR Code)
+  sock.ev.on("messaging-history.set", async ({ chats, contacts }) => {
+    logger.info("Sincronizando histórico de conversas do WhatsApp...");
+    
+    // Salva as conversas do histórico
+    for (const chat of chats) {
+      try {
+        if (chat.id && chat.id.endsWith("@s.whatsapp.net")) {
+          const phone = chat.id.split("@")[0];
+          const name = chat.name || "Sem nome";
+          await upsertCustomerByPhone(phone, name);
+        }
+      } catch (err) {
+        logger.error({ err, phone: chat.id }, "Erro ao sincronizar chat histórico");
       }
     }
   });

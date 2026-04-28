@@ -15,6 +15,8 @@ import Categories from "./pages/Categories";
 import Customers from "./pages/Customers";
 import Conversations from "./pages/Conversations";
 import BotSettings from "./pages/BotSettings";
+import CatalogSettings from "./pages/CatalogSettings";
+import Campaigns from "./pages/Campaigns";
 import Logs from "./pages/Logs";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound.tsx";
@@ -37,6 +39,8 @@ const App = () => (
               <Route path="/produtos/novo" element={<ProductForm />} />
               <Route path="/produtos/:id" element={<ProductForm />} />
               <Route path="/categorias" element={<Categories />} />
+              <Route path="/catalogo" element={<CatalogSettings />} />
+              <Route path="/disparos" element={<Campaigns />} />
               <Route path="/clientes" element={<Customers />} />
               <Route path="/conversas" element={<Conversations />} />
               <Route path="/configuracoes" element={<BotSettings />} />

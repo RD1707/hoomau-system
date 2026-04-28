@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { startBaileys } from "./whatsapp/baileys-client";
 import { startOutboundQueue } from "./core/outbound-queue";
+import { startCampaignRunner } from "./services/campaign-runner";
 import { startHeartbeat } from "./core/heartbeat";
 import { runOfflineRecovery } from "./core/offline-recovery";
 import { logger } from "./utils/logger";
@@ -16,6 +17,9 @@ async function main() {
 
   // Fila de envios manuais (o dono envia pelo painel -> bot envia no WhatsApp)
   startOutboundQueue();
+
+  // Executor de campanhas (disparo em massa)
+  startCampaignRunner();
 
   // Retomada após ficar offline: manda mensagem configurada uma única vez por conversa
   await runOfflineRecovery();

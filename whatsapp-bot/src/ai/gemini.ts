@@ -11,6 +11,7 @@ type ReplyResult = {
   imageUrls: string[];
   contextPatch?: Record<string, unknown>;
   detectedIntent?: string;
+  sendCatalog?: boolean;
 };
 
 export async function generateBotReply(args: {
@@ -58,7 +59,8 @@ export async function generateBotReply(args: {
       text: parsed.text || "Desculpe, não consegui entender. Pode repetir?",
       productIds: Array.isArray(parsed.product_ids) ? parsed.product_ids : [],
       imageUrls: Array.isArray(parsed.image_urls) ? parsed.image_urls : [],
-      contextPatch: parsed.context && typeof parsed.context === "object" ? parsed.context : undefined
+      contextPatch: parsed.context && typeof parsed.context === "object" ? parsed.context : undefined,
+      sendCatalog: !!parsed.send_catalog
     };
   } catch (err) {
     logger.error({ err }, "Gemini falhou");

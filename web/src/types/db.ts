@@ -86,6 +86,29 @@ export type BotConfig = {
   enable_photos: boolean;
   enable_data_collection: boolean;
   max_images: number;
+  catalog_url?: string | null;
+  catalog_type?: string | null;
+};
+
+export type Campaign = {
+  id: string;
+  name: string;
+  message_variants: string[];
+  status: "pending" | "running" | "paused" | "completed" | "cancelled";
+  batch_size: number;
+  pause_between_batches: number;
+  pause_between_messages: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CampaignContact = {
+  id: string;
+  campaign_id: string;
+  customer_id: string;
+  status: "pending" | "sent" | "failed";
+  sent_at: string | null;
+  error_message: string | null;
 };
 
 export type Faq = { id: string; question: string; answer: string; active: boolean; position: number };

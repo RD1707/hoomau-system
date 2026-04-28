@@ -76,6 +76,8 @@ export async function handleIncomingMessage(msg: proto.IWebMessageInfo) {
   }
 
   // 7) Classificar intenção em paralelo (best effort)
+  let forceCatalog = (text === "1");
+
   classifyIntent(text)
     .then((intent) => supabase.from("conversations").update({ intent }).eq("id", conversation.id))
     .catch((err) => logger.warn({ err }, "Falha classify intent"));
@@ -90,6 +92,12 @@ export async function handleIncomingMessage(msg: proto.IWebMessageInfo) {
 
   // 9) Enviar texto + imagens
   await sendText(remoteJid, reply.text);
+  
+  // Se a IA sinalizar ou se o usuário digitou "1" manualmente
+  if (reply.sendCatalog || forceCatalog) {
+    await sendCatalog(remoteJid, cfg);
+  }
+
   for (const url of reply.imageUrls.slice(0, cfg?.max_images ?? 3)) {
     try {
       await getSocket().sendMessage(remoteJid, { image: { url } });
@@ -121,4 +129,25 @@ export async function handleIncomingMessage(msg: proto.IWebMessageInfo) {
 
 async function sendText(jid: string, text: string) {
   await getSocket().sendMessage(jid, { text });
+}
+o está disponível no momento.");
+    return;
+  }
+
+  const type = cfg.catalog_type || "link";
+  
+  if (type === "link") {
+    await sendText(jid, `Aqui está o nosso catálogo: ${cfg.catalog_url}`);
+  } else if (type === "pdf") {
+    await getSocket().sendMessage(jid, { 
+      document: { url: cfg.catalog_url }, 
+      fileName: "Catalogo.pdf", 
+      mimetype: "application/pdf" 
+    });
+  } else if (type === "image") {
+    await getSocket().sendMessage(jid, { 
+      image: { url: cfg.catalog_url }, 
+      caption: "Aqui está o nosso catálogo!" 
+    });
+  }
 }

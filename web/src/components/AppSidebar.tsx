@@ -14,6 +14,8 @@ const items = [
   { title: "Dashboard",    url: "/",              icon: LayoutDashboard },
   { title: "Produtos",     url: "/produtos",      icon: Package },
   { title: "Categorias",   url: "/categorias",    icon: FolderTree },
+  { title: "Catálogo",     url: "/catalogo",      icon: Package },
+  { title: "Disparos",     url: "/disparos",      icon: MessageSquare },
   { title: "Clientes",     url: "/clientes",      icon: Users },
   { title: "Conversas",    url: "/conversas",     icon: MessageSquare },
   { title: "Configurações",url: "/configuracoes", icon: Settings },

@@ -3,15 +3,22 @@ import { getSocket } from "../whatsapp/baileys-client";
 import { logger, persistLog } from "../utils/logger";
 import { appendMessage } from "./conversations";
 
+let isRunning = false; // Variável de controlo (Lock) para evitar sobreposição
+
 export async function startCampaignRunner() {
-  logger.info("Iniciando executor de campanhas...");
+  logger.info("A iniciar executor de campanhas...");
   
-  // Rodar a cada 30 segundos para checar novas campanhas ou lotes
+  // Rodar a cada 30 segundos para verificar novas campanhas ou lotes
   setInterval(async () => {
+    if (isRunning) return; // Se ainda estiver a processar, ignora este ciclo
+    
+    isRunning = true;
     try {
       await processActiveCampaigns();
     } catch (err) {
-      logger.error({ err }, "Erro no loop do campaign runner");
+      logger.error({ err }, "Erro no ciclo do campaign runner");
+    } finally {
+      isRunning = false; // Liberta o lock no final
     }
   }, 30000);
 }
@@ -32,7 +39,7 @@ async function processActiveCampaigns() {
 }
 
 async function processCampaignBatch(campaign: any) {
-  // Buscar contatos pendentes desta campanha
+  // Buscar contactos pendentes desta campanha
   const { data: contacts, error } = await supabase
     .from("campaign_contacts")
     .select("*, customers(*)")
@@ -42,7 +49,7 @@ async function processCampaignBatch(campaign: any) {
 
   if (error || !contacts || contacts.length === 0) {
     if (!error && contacts?.length === 0) {
-      // Se não há mais contatos pendentes, marcar como concluída
+      // Se não há mais contactos pendentes, marcar como concluída
       await supabase.from("campaigns").update({ status: "completed" }).eq("id", campaign.id);
       logger.info({ campaign: campaign.name }, "Campanha concluída");
     }
@@ -54,23 +61,33 @@ async function processCampaignBatch(campaign: any) {
     await supabase.from("campaigns").update({ status: "running" }).eq("id", campaign.id);
   }
 
-  logger.info({ campaign: campaign.name, batchSize: contacts.length }, "Processando lote de campanha");
+  logger.info({ campaign: campaign.name, batchSize: contacts.length }, "A processar lote de campanha");
 
   for (const contact of contacts) {
     try {
+      // Garante que o Supabase lide bem seja a retornar um objeto ou um array
+      const customerData = Array.isArray(contact.customers) 
+        ? contact.customers[0] 
+        : contact.customers;
+
+      // Trava de segurança: Se não achar o cliente ou o telefone, avança este disparo e marca erro
+      if (!customerData || !customerData.phone) {
+        throw new Error("Dados do cliente (telefone) ausentes ou excluídos da base de dados.");
+      }
+
       // 1. Sortear variação de mensagem
       const variants = campaign.message_variants;
       let text = variants[Math.floor(Math.random() * variants.length)];
       
       // 2. Personalizar (ex: substituir {nome})
-      const customerName = contact.customers?.name || "cliente";
+      const customerName = customerData.name || "cliente";
       text = text.replace(/{nome}/gi, customerName);
 
       // 3. Enviar via WhatsApp
-      const jid = `${contact.customers.phone}@s.whatsapp.net`;
+      const jid = `${customerData.phone}@s.whatsapp.net`;
       await getSocket().sendMessage(jid, { text });
 
-      // 4. Registrar na conversa
+      // 4. Registar na conversa
       const { data: conv } = await supabase
         .from("conversations")
         .select("id")
@@ -98,12 +115,20 @@ async function processCampaignBatch(campaign: any) {
 
     } catch (err: any) {
       logger.error({ err, contactId: contact.id }, "Falha ao enviar mensagem de campanha");
-      await supabase.from("campaign_contacts")
-        .update({ status: "failed", error_message: err.message })
-        .eq("id", contact.id);
+      
+      const currentRetries = contact.retry_count || 0;
+      
+      if (currentRetries < 3) {
+        // Se falhou mas tem menos de 3 tentativas, apenas soma 1 ao contador e mantém 'pending'
+        await supabase.from("campaign_contacts")
+          .update({ retry_count: currentRetries + 1 })
+          .eq("id", contact.id);
+      } else {
+        // Se já tentou mais de 3 vezes, então sim, desiste e marca como 'failed'
+        await supabase.from("campaign_contacts")
+          .update({ status: "failed", error_message: err.message })
+          .eq("id", contact.id);
+      }
     }
   }
-
-  // 7. Pausa entre lotes (se houver mais para processar)
-  // O loop do setInterval já cuida disso naturalmente, mas podemos forçar se necessário.
 }

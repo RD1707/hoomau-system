@@ -78,8 +78,9 @@ export default function ProductForm() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `products/${fileName}`;
 
+      // CORRIGIDO AQUI: de "products" para "product-images"
       const { error: uploadError } = await supabase.storage
-        .from("products")
+        .from("product-images")
         .upload(filePath, file);
 
       if (uploadError) {
@@ -87,7 +88,8 @@ export default function ProductForm() {
         continue;
       }
 
-      const { data: { publicUrl } } = supabase.storage.from("products").getPublicUrl(filePath);
+      // CORRIGIDO AQUI: de "products" para "product-images"
+      const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(filePath);
 
       // Se estiver editando, salva direto no banco. Se for novo, guarda no estado temporário.
       if (isEdit) {

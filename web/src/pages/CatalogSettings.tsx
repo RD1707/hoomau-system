@@ -62,19 +62,21 @@ export default function CatalogSettings() {
       const fileName = `catalog_${Date.now()}.${fileExt}`;
       const filePath = `catalogs/${fileName}`;
 
+      // CORRIGIDO: Alterado de 'products' para 'product-images'
       const { error: uploadError } = await supabase.storage
-        .from('products') // Reusing products bucket or should create a specific one
+        .from('product-images') 
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
+      // CORRIGIDO: Alterado de 'products' para 'product-images'
       const { data: { publicUrl } } = supabase.storage
-        .from('products')
+        .from('product-images')
         .getPublicUrl(filePath);
 
       setCatalogUrl(publicUrl);
       
-      // Auto-detect type
+      // Detecção automática do tipo
       if (['pdf'].includes(fileExt?.toLowerCase() || '')) setCatalogType('pdf');
       else if (['jpg', 'jpeg', 'png', 'webp'].includes(fileExt?.toLowerCase() || '')) setCatalogType('image');
       
